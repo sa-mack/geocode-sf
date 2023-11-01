@@ -1,0 +1,115 @@
+public class GeocodioService {
+    
+    @future(callout=true)
+    public static void geocodeAddress(String id) {
+        npsp__Address__c address = [SELECT Id, npsp__MailingStreet__c, npsp__MailingStreet_2__c, npsp__MailingCity__c, npsp__MailingState__c, npsp__MailingPostalCode__c FROM npsp__Address__c WHERE Id = :id LIMIT 1];
+        
+        Geocodio_API_Config__c settings = Geocodio_API_Config__c.getInstance();
+		String apiKey = settings.API_Key__c;
+
+        String street = (address.npsp__MailingStreet__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingStreet__c, 'UTF-8') : '';
+	    String street2 = (address.npsp__MailingStreet_2__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingStreet_2__c , 'UTF-8') : '';            
+        String city = (address.npsp__MailingCity__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingCity__c, 'UTF-8') : '';
+        String state = (address.npsp__MailingState__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingCity__cState__c, 'UTF-8') : '';
+        String zip = (address.npsp__MailingPostalCode__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingPostalCode__c, 'UTF-8') : '';
+        String additionalFields = 'census,stateleg,cd';
+        String ep = 'https://api.geocod.io/v1.6/geocode?street=' + street +
+                                 '&city=' + city + 
+                                 '&state=' + state + 
+                                 '&postal_code=' + zip + 
+                                 '&fields=' + additionalFields +
+                                 '&api_key=' + apiKey;
+        HttpRequest request = new HttpRequest();
+        request.setEndpoint(ep);
+        request.setMethod('GET');
+        request.setHeader('Content-Type', 'application/json');    
+        Http http = new Http();
+        HttpResponse response = http.send(request);
+            
+        String body = response.getBody();
+        Map<String, Object> parsed = (Map<String, Object>) JSON.deserializeUntyped(body);
+        List<Object> results = (List<Object>) parsed.get('results');
+        Map<String, Object> row = (Map<String, Object>) results[0];
+        Map<String, Object> addressComponents = (Map<String, Object>) row.get('address_components');
+        Map<String, Object> fields = (Map<String, Object>) row.get('fields');
+        
+        //Address
+        String corNum = (String) addressComponents.get('number');
+        String corSt = (String) addressComponents.get('formatted_street');
+        String corCity = (String) addressComponents.get('city');
+        String corState = (String) addressComponents.get('state');
+        String corZip = (String) addressComponents.get('zip');
+        String secondaryUnit = (String) addressComponents.get('secondaryunit');
+        String secondaryNum = (String) addressComponents.get('secondarynumber');
+        
+		address.npsp__MailingStreet__c = (corNum != null ? corNum : '') + ' ' + (corSt != null ? corSt : '');
+		address.npsp__MailingStreet_2__c = (secondaryUnit != null ? secondaryUnit : '') + ' ' + (secondaryNum != null ? secondaryNum : '');
+        address.npsp__MailingCity__c = corCity;
+        address.npsp__MailingState__c = corState;
+        address.npsp__MailingPostalCode__c = corZip;
+        
+        //Congressional District
+       	List<Object> congressionalDistricts = (List<Object>) fields.get('congressional_districts');
+        if (congressionalDistricts != null && !congressionalDistricts.isEmpty()) {
+        	Map<String, Object> firstDistrict = (Map<String, Object>) congressionalDistricts[0];
+   		    String cdName = (String) firstDistrict.get('name');
+            address.Congressional_District__c = cdName;
+        }       
+        //State Leg
+        Map<String, Object> stateLegs = (Map<String, Object>) fields.get('state_legislative_districts');
+        if (stateLegs != null) {
+        	Map<String, Object> stateLegHouse = (Map<String, Object>) stateLegs.get('house');
+            String houseName = (String) stateLegHouse.get('name');
+		    Map<String, Object> stateLegSenate = (Map<String, Object>) stateLegs.get('senate');
+            String senateName = (String) stateLegSenate.get('name');
+            address.State_Legislative_District_House_Name__c = houseName;
+            address.State_Legislative_District_Senate_Name__c = senateName;
+        }
+        
+        //Census
+		Map<String, Object> censusData = (Map<String, Object>) fields.get('census');
+		List<String> years = new List<String>(censusData.keySet());
+		years.sort();
+		String year = years[years.size() - 1];
+        address.Census_Year__c = year;
+		Map<String, Object> census = (Map<String, Object>) censusData.get(year);
+
+		String tractCode = (String) census.get('tract_code');
+        address.Census_Tract_Code__c = tractCode;
+        
+        
+        Map<String, Object> metroMicro = (Map<String, Object>) census.get('metro_micro_statistical_area');
+        if (metroMicro != null) {
+        	String mmName = (String) metroMicro.get('name');
+        	String mmType = (String) metroMicro.get('type');
+            address.Metro_Micro_Statistical_Area_Type__c = mmType;
+            address.Metro_Micro_Statistical_Area_Name__c = mmName;
+            if (mmType == 'metropolitan') {
+                address.USDA_Rural__c = 'Urban';
+            }
+            else {
+                address.USDA_Rural__c = 'Rural';
+            }
+        }
+        
+        Map<String, Object> CSA = (Map<String, Object>) census.get('combined_statistical_area');
+        if (CSA != null) {
+            String CSAName = (String) CSA.get('name');
+            address.Combined_Statistical_Area_Name__c = CSAName;
+        }
+        
+        //USDA Rural
+        if (metroMicro == null) {
+            if (street == null) {
+                address.USDA_Rural__c = 'Unknown';
+            }
+            else {
+                address.USDA_Rural__c = 'Rural';
+            }
+        }
+     
+                
+        update address;
+    }
+
+}

@@ -1,0 +1,5 @@
+trigger GeocodioTrigger on npsp__Address__c (after insert, after update) {
+    for(npsp__Address__c a : Trigger.new) {
+        GeocodioService.geocodeAddress(String.valueOf(a.Id));
+    }
+}
