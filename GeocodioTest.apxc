@@ -1,0 +1,37 @@
+@isTest
+private class TestGeocodioService {
+
+    static testMethod void setupTestData() {
+        npsp__Address__c testAddress = new npsp__Address__c(
+            npsp__MailingStreet__c='123 Test Street',
+            npsp__MailingCity__c='Testville',
+            npsp__MailingState__c='TS',
+            npsp__MailingPostalCode__c='12345'
+        );
+        insert testAddress;
+    }
+
+    static testMethod void testGeocodeAddress() {
+        Test.startTest();
+        
+        Test.setMock(HttpCalloutMock.class, new MockHttpResponseGenerator());
+
+        GeocodioService.geocodeAddress([SELECT Id FROM npsp__Address__c LIMIT 1].Id);
+
+        Test.stopTest();
+
+        npsp__Address__c updatedAddress = [SELECT Id, npsp__MailingStreet__c, ... FROM npsp__Address__c WHERE Id = :testAddress.Id];
+        
+        System.assert(updatedAddress.npsp__MailingStreet__c != null, 'Street should be updated');
+    }
+
+    private class MockHttpResponseGenerator implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request) {
+            HttpResponse response = new HttpResponse();
+            response.setHeader('Content-Type', 'application/json');
+            response.setBody('{"results": ... }'); 
+            response.setStatusCode(200);
+            return response;
+        }
+    }
+}
