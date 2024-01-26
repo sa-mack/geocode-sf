@@ -8,9 +8,9 @@ public class GeocodioService {
 		String apiKey = settings.API_Key__c;
 
         String street = (address.npsp__MailingStreet__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingStreet__c, 'UTF-8') : '';
-	    String street2 = (address.npsp__MailingStreet_2__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingStreet_2__c , 'UTF-8') : '';            
+	    String street2 = (address.npsp__MailingStreet2__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingStreet2__c , 'UTF-8') : '';            
         String city = (address.npsp__MailingCity__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingCity__c, 'UTF-8') : '';
-        String state = (address.npsp__MailingState__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingCity__cState__c, 'UTF-8') : '';
+        String state = (address.npsp__MailingState__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingCity__State__c, 'UTF-8') : '';
         String zip = (address.npsp__MailingPostalCode__c != null) ? EncodingUtil.urlEncode(address.npsp__MailingPostalCode__c, 'UTF-8') : '';
         String additionalFields = 'census,stateleg,cd';
         String ep = 'https://api.geocod.io/v1.6/geocode?street=' + street +
@@ -43,7 +43,7 @@ public class GeocodioService {
         String secondaryNum = (String) addressComponents.get('secondarynumber');
         
 		address.npsp__MailingStreet__c = (corNum != null ? corNum : '') + ' ' + (corSt != null ? corSt : '');
-		address.npsp__MailingStreet_2__c = (secondaryUnit != null ? secondaryUnit : '') + ' ' + (secondaryNum != null ? secondaryNum : '');
+		address.npsp__MailingStreet2__c = (secondaryUnit != null ? secondaryUnit : '') + ' ' + (secondaryNum != null ? secondaryNum : '');
         address.npsp__MailingCity__c = corCity;
         address.npsp__MailingState__c = corState;
         address.npsp__MailingPostalCode__c = corZip;
